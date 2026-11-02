@@ -1,27 +1,35 @@
-#include <stdio.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include "functions.h"
 
-int READLINE_READ_SIZE = 512;
-char* storage = NULL;
-char* my_readline(int fd);
-
-int main (int ac, char** av) {
-    for (int index_arg = 1; index_arg < ac; index_arg++) {
-        int fd = open(av[index_arg], O_RDONLY);
-        char* final;
-        while ((final = my_readline(fd)) != NULL) {
-            printf("%s", final);
-            free(final);
-        }
-        close(fd);
-
+char* my_readline(int fd) {
+    char buffer[READLINE_READ_SIZE];
+    ssize_t reading = read(fd, buffer, READLINE_READ_SIZE);
+    verif_read(reading);
+    
+    if (reading == 0) {
+        return end_file();
     }
-    return 0;
+    int index_jump = jump(buffer, reading);
+    if(index_jump == -1) {
+        no_jump_line(buffer, reading);
+        return my_readline(fd);
+    }
+    return jump_line(buffer, reading, index_jump);
 }
 
-int line_jump(char* buffer, ssize_t reading) {
+char* end_file(void) {
+    //NO STORAGE:
+    if (storage == NULL) {
+        return NULL;
+    }
+    //STORAGE:
+    int size_storage = count_string(storage);
+    char* final = malloc_and_verif(size_storage + 1);
+    fill_string(final, storage, 0, 0, size_storage);
+    init_my_readline();
+    return final;
+}
+
+int jump(char* buffer, ssize_t reading) {
     int index_jump = -1;
     for (int i = 0; i < reading; i++) {
         if (buffer[i] == '\n') {
@@ -32,185 +40,54 @@ int line_jump(char* buffer, ssize_t reading) {
     return index_jump;
 }
 
-void init_my_readline(void) {
-    free(storage);
-    storage = NULL;
-}
-
-char* read_line(int fd, char* buffer) {
-
-}
-
-int save_storage(char* buffer, ssize_t reading) {
+void no_jump_line(char* buffer, ssize_t reading) {
+    //NO STORAGE:
     if (storage == NULL) {
-        storage = malloc(sizeof(char) * (reading + 1));
-        int index_storage = 0;
-        for (int index_buffer = 0; index_buffer < reading; index_buffer++) {
-            storage[index_storage] = buffer[index_buffer];
-            index_storage++;
-        }
-        storage[index_storage] = '\0';
-        return my_readline(fd);
+        storage = malloc_and_verif(reading + 1);
+        fill_string(storage, buffer, 0, 0, reading);
+    } else {
+    //STORAGE:
+        int size_storage = count_string(storage);
+        char* storage2 = malloc_and_verif(size_storage + reading + 1);
+        fill_string(storage2, storage, 0, 0, size_storage);
+        fill_string(storage2, buffer, size_storage, 0, size_storage + reading);
+        free(storage);
+        storage = storage2;
     }
-    int size_storage = count_string(storage);
-    char* storage2 = malloc(sizeof(char) * (size_storage + reading + 1));
-    int index_storage = 0;
-    while (index_storage < size_storage) {
-        storage2[index_storage] = storage[index_storage];
-        index_storage++;
-    }
-    
-    for (int index_buffer = 0; index_buffer < reading; index_buffer++) {
-        storage2[index_storage] = buffer[index_buffer];
-        index_storage++;
-    }
-    storage2[index_storage] = '\0';
-    free(storage);
-    storage = storage2;
-    return my_readline(fd);
 }
 
-char* extract_line(char* buffer, ssize_t reading, int index_jump) (
-
-)
-
-char* line_from_storage(void) {
+char* jump_line(char* buffer, ssize_t reading, int index_jump) {
+    //NO STORAGE:
     if (storage == NULL) {
-        return NULL;
+        return jump_and_no_storage(buffer, reading, index_jump);
     }
-    int size_storage = count_string(storage);
-    char* final = malloc(sizeof(char) * (size_storage + 1));
-    for (int i = 0; i < size_storage; i++) {
-        final[i] = storage[i];
-    }
-    final[size_storage] = '\0';
+    //STORAGE:
+    return jump_and_storage(buffer, reading, index_jump);
+}
 
-    free(storage);
-    storage = NULL;
+char* jump_and_no_storage(char* buffer, ssize_t reading, int index_jump) {
+    char* final = malloc_and_verif(index_jump + 1);
+    fill_string(final, buffer, 0, 0, index_jump);
+    //JUMP IN THE MIDDLE:
+    if (index_jump != (reading - 1)) {
+        int new_size_storage = reading - index_jump - 1;
+        storage = malloc_and_verif(reading - index_jump - 1);
+        fill_string(storage, buffer, 0, index_jump + 1, new_size_storage);
+    }
     return final;
 }
 
-char* my_readline(int fd) {
-    char buffer[READLINE_READ_SIZE];
-    
-    ssize_t reading = read(fd, buffer, READLINE_READ_SIZE);
-    if (reading == -1) {
-        return NULL;
-    }
-    if (reading == 0) {
-        return line_from_storage(void);
-    }
-
-    int index_jump = line_jump(buffer, reading);
-
-    if(index_jump == -1) {
-        if(save_storage(buffer, reading)) {
-            return NULL;
-        } else {
-            return my_readline(fd);
-        }
-    }
-
-    if (storage == NULL) {
-        if (index_jump != reading - 1) {
-            int new_size_storage = reading - index_jump - 1;
-            storage = malloc(sizeof(char) * new_size_storage + 1);
-            int index_storage = 0, index_buffer = index_jump + 1;
-            while (index_storage < new_size_storage) {
-                storage[index_storage] = buffer[index_buffer];
-                index_storage++;
-                index_buffer++;
-            }
-            storage[index_storage] = '\0';
-        }
-        char* final = malloc(sizeof(char) * (index_jump + 1));
-        for(int i = 0; i < index_jump; i++) {
-            final[i] = buffer[i];
-        }
-        final[index_jump] = '\0';
-        return final;
-    }
-
-
+char* jump_and_storage(char* buffer, ssize_t reading, int index_jump) {
     int size_storage = count_string(storage);
-    char* final = malloc(sizeof(char) * (size_storage + index_jump + 1));
-    int index_final = 0;
-    while(index_final < size_storage) {
-        final[index_final] = storage[index_final];
-        index_final++;
-    }
-    for (int index_buffer = 0; index_buffer < index_jump; index_buffer++) {
-        final[index_final] = buffer[index_buffer];
-        index_final++;
-    }
-    final[index_final] = '\0';
-    free(storage);
-    storage = NULL;
+    char* final = malloc_and_verif(size_storage + index_jump + 1);
+    fill_string(final, storage, 0, 0, size_storage);
+    fill_string(final, buffer, size_storage, 0, size_storage + index_jump);
+    init_my_readline();
+    //JUMP IN THE MIDDLE:
     if (index_jump != reading - 1) {
         int new_size_storage = reading - index_jump - 1;
-        storage = malloc(sizeof(char) * new_size_storage + 1);
-        int index_storage = 0, index_buffer = index_jump + 1;
-        while (index_storage < new_size_storage) {
-            storage[index_storage] = buffer[index_buffer];
-            index_storage++;
-            index_buffer++;
-        }
-        storage[index_storage] = '\0';
+        storage = malloc_and_verif(new_size_storage + 1);
+        fill_string(storage, buffer, 0, index_jump + 1, new_size_storage);
     }
     return final;
-}
-
-int count_string(char* string) {
-    int i = 0, count = 0;
-    while (string[i] != '\0') {
-        count++;
-        i++;
-    }
-    return count;
-}
-
-
-
-char* reding_0 (void) {
-    if (storage == NULL) {
-        return NULL;
-    }
-    int size_storage = count_string(storage);
-    char* final = malloc(sizeof(char) * (size_storage + 1));
-    for (int i = 0; i < size_storage; i++) {
-        final[i] = storage[i];
-    }
-    final[size_storage] = '\0';
-
-    free(storage);
-    storage = NULL;
-    return final;
-}
-char* no_line_jump(char* buffer, ssize_t reading) {
-    if (storage == NULL) {
-        storage = malloc(sizeof(char) * (reading + 1));
-        int index_storage = 0;
-        for (int index_buffer = 0; index_buffer < reading; index_buffer++) {
-            storage[index_storage] = buffer[index_buffer];
-            index_storage++;
-        }
-        storage[index_storage] = '\0';
-        return my_readline(fd);
-    }
-    int size_storage = count_string(storage);
-    char* storage2 = malloc(sizeof(char) * (size_storage + reading + 1));
-    int index_storage = 0;
-    while (index_storage < size_storage) {
-        storage2[index_storage] = storage[index_storage];
-        index_storage++;
-    }
-    
-    for (int index_buffer = 0; index_buffer < reading; index_buffer++) {
-        storage2[index_storage] = buffer[index_buffer];
-        index_storage++;
-    }
-    storage2[index_storage] = '\0';
-    free(storage);
-    storage = storage2;
-    return my_readline(fd);
 }
