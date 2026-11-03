@@ -5,9 +5,10 @@ int main(int ac, char** av) {
         int fd = open(av[index_arg], O_RDONLY);
         char* final;
         while ((final = my_readline(fd)) != NULL) {
-            printf("%s", final);
+            printf("%s\n", final);
             free(final);
         }
+        printf("NULL\n");
         close(fd);
         init_my_readline();
     }

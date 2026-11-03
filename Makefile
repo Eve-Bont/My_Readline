@@ -5,7 +5,7 @@ CFLAGS = -Wall -Wextra -Werror
 
 all: $(NAME)
 $(NAME): $(OBJ)
-	gcc $(CFLAGS) &(OBJ) -o $(NAME)
+	gcc $(CFLAGS) $(OBJ) -o $(NAME)
 %.o: %.c
 	gcc $(CFLAGS) -c $< -o $@
 
