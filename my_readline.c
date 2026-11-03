@@ -80,18 +80,18 @@ char* jump_line(char* buffer, ssize_t reading, int index_jump) {
 }
 
 char* jump_and_no_storage(char* buffer, ssize_t reading, int index_jump) {
-    char* final = malloc(sizeof(char) * (index_jump + 1));
-    if (final == NULL)
-        return NULL;
-    fill_string(final, buffer, 0, 0, index_jump);
     //JUMP IN THE MIDDLE:
     if (index_jump != (reading - 1)) {
         int new_size_storage = reading - index_jump - 1;
-        STORAGE = malloc(sizeof(char) * (reading - index_jump - 1));
+        STORAGE = malloc(sizeof(char) * (new_size_storage + 1));
         if (STORAGE == NULL)
             return NULL;
         fill_string(STORAGE, buffer, 0, index_jump + 1, new_size_storage);
     }
+    char* final = malloc(sizeof(char) * (index_jump + 1));
+    if (final == NULL)
+        return NULL;
+    fill_string(final, buffer, 0, 0, index_jump);
     return final;
 }
 
@@ -107,8 +107,10 @@ char* jump_and_storage(char* buffer, ssize_t reading, int index_jump) {
     if (index_jump != reading - 1) {
         int new_size_storage = reading - index_jump - 1;
         STORAGE = malloc(sizeof(char) * (new_size_storage + 1));
-        if (STORAGE == NULL)
+        if (STORAGE == NULL) {
+            free(final);
             return NULL;
+        }
         fill_string(STORAGE, buffer, 0, index_jump + 1, new_size_storage);
     }
     return final;
